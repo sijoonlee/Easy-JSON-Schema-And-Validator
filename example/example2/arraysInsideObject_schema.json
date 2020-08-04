@@ -1,0 +1,12 @@
+[
+  {
+    "type": "object",
+    "namespace": "simple",
+    "name": "test2",
+    "doc": "simple",
+    "fields": [
+      {"name": "subject", "type":  "String[]"},
+      {"name": "score", "type":  "Integer[]"}
+    ]
+  }
+]

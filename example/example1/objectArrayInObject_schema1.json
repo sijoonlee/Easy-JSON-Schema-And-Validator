@@ -1,0 +1,22 @@
+[
+  {
+    "type": "array",
+    "namespace": "hobby",
+    "name": "arr",
+    "doc": "simple sub array",
+    "fields": [
+      {"name": "name", "type":  "String"},
+      {"name": "howFreq", "type":  "Integer"}
+    ]
+  },
+  {
+    "type": "object",
+    "namespace": "simple",
+    "name": "test",
+    "fields": [
+      {"name": "name", "type":  "String"},
+      {"name": "age", "type":  "Integer"},
+      {"name": "hobbies", "type": "hobby.arr"}
+    ]
+  }
+]

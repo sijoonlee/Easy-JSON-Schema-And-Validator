@@ -1,0 +1,12 @@
+[
+  {
+    "type": "array",
+    "namespace": "simple",
+    "name": "test3",
+    "doc": "simple",
+    "fields": [
+      {"name": "subject", "type":  "String"},
+      {"name": "score", "type":  "Double"}
+    ]
+  }
+]

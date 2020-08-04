@@ -1,0 +1,8 @@
+{
+  "name": "john",
+  "age":  30,
+  "hobbies": [
+    { "name" : "soccer", "howFreq": 10 },
+    { "name" : "swimming", "howFreq": 1}
+  ]
+}
