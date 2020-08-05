@@ -30,6 +30,7 @@ public class SchemaValidator {
     private final String TYPE_BOOLEAN = "Boolean";
     private final String TYPE_OFFSETDATETIME = "OffsetDateTime";
     private final String TYPE_CHECKING_PASS = "TypeCheckingPass";
+    private final String REGEX_PREFIX = "$REGEX$";
 
     /*
     @FirstParam: the path of Schema json file
@@ -211,8 +212,22 @@ public class SchemaValidator {
     private void checkRequiredFieldExist(int indexOfSchema, Set<String> fieldNamesInTarget) throws Exception {
         ArrayList<String> requiredFieldNames = schemas.get(indexOfSchema).getRequiredFieldNames();
         ArrayList<String> notFound = new ArrayList<>();
+
         for (String requiredFieldName : requiredFieldNames) {
-            if(!fieldNamesInTarget.contains(requiredFieldName)){
+            boolean found = false;
+            for (String fieldNameInTarget : fieldNamesInTarget) {
+                if(requiredFieldName.startsWith(REGEX_PREFIX)){
+                    String pattern = requiredFieldName.substring(REGEX_PREFIX.length());
+                    if(fieldNameInTarget.matches(pattern)){
+                        found = true;
+                        break;
+                    }
+                } else if (requiredFieldName.equals(fieldNameInTarget)) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found){
                 notFound.add(requiredFieldName);
             }
         }
