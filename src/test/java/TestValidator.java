@@ -12,11 +12,11 @@ public class TestValidator {
 
         SchemaValidator validator1 = new SchemaValidator("example/example1/objectArrayInObject_schema1.json");
 
-        isValid = validator1.runWithJsonFile("example/example1/objectArrayInObject.json", "simple.test");
+        isValid = validator1.run("example/example1/objectArrayInObject.json", "simple.test");
         assertTrue(isValid);
 
         SchemaValidator validator2 = new SchemaValidator("example/example1/objectArrayInObject_schema2.json");
-        isValid = validator2.runWithJsonFile("example/example1/objectArrayInObject.json", "simple.test");
+        isValid = validator2.run("example/example1/objectArrayInObject.json", "simple.test");
         assertTrue(isValid);
     }
 
@@ -24,7 +24,7 @@ public class TestValidator {
     public void example2() {
         boolean isValid;
         SchemaValidator validator = new SchemaValidator("example/example2/arraysInsideObject_schema.json");
-        isValid = validator.runWithJsonFile("example/example2/arraysInsideObject.json", "simple.test2");
+        isValid = validator.run("example/example2/arraysInsideObject.json", "simple.test2");
         assertTrue(isValid);
     }
 
@@ -32,7 +32,7 @@ public class TestValidator {
     public void example3() {
         boolean isValid;
         SchemaValidator validator = new SchemaValidator("example/example3/simpleObjectInArray_schema.json");
-        isValid = validator.runWithJsonFile("example/example3/simpleObjectInArray.json", "simple.test3");
+        isValid = validator.run("example/example3/simpleObjectInArray.json", "simple.test3");
         assertTrue(isValid);
     }
 
@@ -40,7 +40,7 @@ public class TestValidator {
     public void example4() {
         boolean isValid;
         SchemaValidator validator = new SchemaValidator("example/example4/usingRegex_schema.json");
-        isValid = validator.runWithJsonFile("example/example4/usingRegex.json", "simple.test4");
+        isValid = validator.run("example/example4/usingRegex.json", "simple.test4");
         assertTrue(isValid);
     }
 }

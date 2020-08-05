@@ -5,8 +5,8 @@
     "name": "obj",
     "doc": "simple",
     "fields": [
-      {"name": "name", "type":  "String"},
-      {"name": "howFreq", "type":  "Integer"}
+      {"name": "name", "type":  "String", "required": "true"},
+      {"name": "howFreq", "type":  "Integer", "required": "true"}
     ]
   },
   {

@@ -8,7 +8,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.github.sijoonlee.util.JsonUtil;
 
 import java.math.BigInteger;
 import java.time.OffsetDateTime;
@@ -74,7 +73,7 @@ public class SchemaValidator {
     }
 
 
-    private void parsingTest(String type, String value) throws Exception {
+    private void checkType(String type, String value) throws Exception {
         if (type.equals(TYPE_INTEGER)) {
             try {
                 Integer.parseInt(value);
@@ -131,87 +130,113 @@ public class SchemaValidator {
     }
 
     private String getFieldType(int indexOfSchema, String name) throws Exception {
-        String type;
-        type = schemas.get(indexOfSchema).findFieldTypeFromFieldName(name);
+        String type = schemas.get(indexOfSchema).findFieldTypeFromFieldName(name);
         if(type == null) {
             throw new Exception("Field Name Error: can't find the field name in schema - " + name);
         }
         return type;
     }
 
-    private void putFieldIntoStack(Deque<FieldInfo> stack, Set<Entry<String, JsonElement>> entries, int indexOfSchema) {
+    private void putFieldIntoStack(Deque<FieldInfo> stack, Set<Entry<String, JsonElement>> entries, int indexOfSchema) throws Exception {
         for (Entry<String, JsonElement> entry : entries){
             String type = FIELD_NAME_NOT_EXIST;
-            try{
-                type = getFieldType(indexOfSchema, entry.getKey());
-            } catch (Exception ex) {
-                log.error("putFieldIntoStack");
-                log.error(ex.getMessage());
-            }
+            type = getFieldType(indexOfSchema, entry.getKey());
             stack.push(new FieldInfo(type, entry.getKey(), entry.getValue()));
         }
     }
 
-    /*
-        @FirstParam: it is the path of json file to be validated
-        @SecondParam: it is the full name of the schema record, which is specified inside of Schema json file
-     */
-    public boolean runWithJsonFile(String targetJsonFilePath, String mainSchemaName){
-        JsonElement targetJson;
-        int indexOfSchema = recordNamedTypes.indexOf(mainSchemaName);
-        if(indexOfSchema < 0) {
-            log.error("Main schema record's full name was wrong");
-            return false;
-        }
-        if(schemas.get(indexOfSchema).getType().equals("array")){
-            targetJson = JsonUtil.convertJsonFileToJsonArray(targetJsonFilePath);
-        } else if (schemas.get(indexOfSchema).getType().equals("object")) {
-            targetJson = JsonUtil.convertJsonFileToJsonObject(targetJsonFilePath);
-        } else {
-            log.error("record type should be 'array' or 'object'");
-            return false;
-        }
-        return runWithJsonElement(targetJson, mainSchemaName);
-    }
-
-    /*
-        @FirstParam: it is Gson's JsonElement object to be validated
-        @SecondParam: it is the full name of the schema record, which is specified inside of Schema json file
-     */
-    public boolean runWithJsonElement(JsonElement targetJsonElement, String mainSchemaName) {
-        boolean isValid = true;
-        int fieldCounter = 0;
-
-        // prepare
-        int indexOfSchema = recordNamedTypes.indexOf(mainSchemaName);
-        if(indexOfSchema < 0) {
-            log.error("Main schema name was wrong");
-            return false;
-        }
-        Deque<FieldInfo> stack = new ArrayDeque<>();
-        Set<Entry<String, JsonElement>> entries; // <field name, field value>
-        FieldInfo field;
+    public void loadTargetJsonElement(JsonElement targetJsonElement, int indexOfSchema, Deque<FieldInfo> stack) throws Exception {
 
         // Generating Initial Stack
         // - check if it is json object or json array
         // - if is array, unfold array and put all items into stack
         // - if is object, put all items into stack
-        if(schemas.get(indexOfSchema).getType().equals("array")) {
+        SchemaRecord schemaRecord = schemas.get(indexOfSchema);
+        log.info("Using Schema Record: " + schemaRecord.getFullNamePath());
 
-            JsonArray targetJson = targetJsonElement.getAsJsonArray();
-            for(JsonElement arrayItem : targetJson){
-                entries = arrayItem.getAsJsonObject().entrySet();
-                putFieldIntoStack(stack, entries, indexOfSchema);
-            }
-        } else if (schemas.get(indexOfSchema).getType().equals("object")) {
-
-            JsonObject targetJson = targetJsonElement.getAsJsonObject();
-            entries = targetJson.getAsJsonObject().entrySet();
-            putFieldIntoStack(stack, entries, indexOfSchema);
+        if(schemaRecord.getType().equals("array")) {
+            JsonArray targetJsonArray = targetJsonElement.getAsJsonArray();
+            loadTargetJsonArray(targetJsonArray, stack, indexOfSchema);
+        } else if (schemaRecord.getType().equals("object")) {
+            JsonObject targetJsonObject = targetJsonElement.getAsJsonObject();
+            loadTargetJsonObject(targetJsonObject, stack, indexOfSchema);
         } else {
-            log.error("record type should be 'array' or 'object'");
-            return false;
+            throw new Exception("record type should be 'array' or 'object'");
         }
+    }
+
+    public void loadTargetJsonFile(String jsonFilePath, int indexOfSchema, Deque<FieldInfo> stack) throws Exception {
+        boolean isValid = true;
+        // Generating Initial Stack
+        // - check if it is json object or json array
+        // - if is array, unfold array and put all items into stack
+        // - if is object, put all items into stack
+        SchemaRecord schemaRecord = schemas.get(indexOfSchema);
+        log.info("Using Schema Record: " + schemaRecord.getFullNamePath());
+
+        if(schemaRecord.getType().equals("array")) {
+            JsonArray targetJsonArray = JsonUtil.convertJsonFileToJsonArray(jsonFilePath);
+            loadTargetJsonArray(targetJsonArray, stack, indexOfSchema);
+        } else if (schemaRecord.getType().equals("object")) {
+            JsonObject targetJsonObject = JsonUtil.convertJsonFileToJsonObject(jsonFilePath);
+            loadTargetJsonObject(targetJsonObject, stack, indexOfSchema);
+        } else {
+            throw new Exception("record type should be 'array' or 'object'");
+        }
+
+    }
+
+    public void loadTargetJsonArray(JsonArray targetJsonArray, Deque<FieldInfo> stack, int indexOfSchema) throws Exception {
+        Set<Entry<String, JsonElement>> entries; // <field name, field value>
+        for(JsonElement arrayItem : targetJsonArray){
+            entries = arrayItem.getAsJsonObject().entrySet();
+            putFieldIntoStack(stack, entries, indexOfSchema);
+            // check if all required fields exist
+            Set<String> fieldNamesInTarget = arrayItem.getAsJsonObject().keySet();
+            checkRequiredFieldExist(indexOfSchema, fieldNamesInTarget);
+        }
+    }
+
+    public void loadTargetJsonObject(JsonObject targetJsonObject, Deque<FieldInfo> stack, int indexOfSchema) throws Exception {
+        Set<Entry<String, JsonElement>> entries; // <field name, field value>
+        // push fields into Stack
+        entries = targetJsonObject.getAsJsonObject().entrySet();
+        putFieldIntoStack(stack, entries, indexOfSchema);
+        // check if all required fields exist
+        Set<String> fieldNamesInTarget = targetJsonObject.getAsJsonObject().keySet();
+        checkRequiredFieldExist(indexOfSchema, fieldNamesInTarget);
+
+    }
+
+    private void checkRequiredFieldExist(int indexOfSchema, Set<String> fieldNamesInTarget) throws Exception {
+        ArrayList<String> requiredFieldNames = schemas.get(indexOfSchema).getRequiredFieldNames();
+        ArrayList<String> notFound = new ArrayList<>();
+        for (String requiredFieldName : requiredFieldNames) {
+            if(!fieldNamesInTarget.contains(requiredFieldName)){
+                notFound.add(requiredFieldName);
+            }
+        }
+        if(notFound.size() > 0) throw new Exception("Required Field(s) Not Found: " + notFound.toString());
+    }
+
+    public int getIndexOfSchemaRecord(String mainSchemaRecordName) throws Exception {
+        int index = recordNamedTypes.indexOf(mainSchemaRecordName);
+        if(index < 0) {
+            throw new Exception("Main Schema Record's name can't be found");
+        }
+        return index;
+    }
+    /*
+        @FirstParam: it is Gson's JsonElement object to be validated
+        @SecondParam: it is the full name of the schema record, which is specified inside of Schema json file
+     */
+    public boolean iterateStack(Deque<FieldInfo> stack) throws Exception {
+        // prepare
+        boolean isValid = true;
+        int fieldCounter = 0;
+        int indexOfSchema;
+        Set<Entry<String, JsonElement>> entries; // <field name, field value>
+        FieldInfo field;
 
         // pop a field from stack and validate it
         while (stack.size() > 0) {
@@ -220,7 +245,7 @@ public class SchemaValidator {
                 // System.out.println(field.name);
                 fieldCounter += 1;
                 try {
-                    parsingTest(field.type, field.value.getAsString());
+                    checkType(field.type, field.value.getAsString());
                 } catch (Exception ex){
                     isValid = false;
                     log.error(ex.getMessage() + " - " + field.name);
@@ -233,7 +258,7 @@ public class SchemaValidator {
                     try{
                         // field.type looks like "String[]"
                         // field.type.substring(0, field.type.length()-2) is to delete "[]"
-                        parsingTest(field.type.substring(0, field.type.length()-2), arrayItem.getAsString());
+                        checkType(field.type.substring(0, field.type.length()-2), arrayItem.getAsString());
                     } catch (Exception ex){
                         isValid = false;
                         log.error(ex.getMessage() + " - " + field.name);
@@ -244,15 +269,18 @@ public class SchemaValidator {
                 // System.out.println(field.name);
                 fieldCounter += 1;
                 indexOfSchema = recordNamedTypes.indexOf(field.type);
+                log.info("Using Schema Record: " + schemas.get(indexOfSchema).getFullNamePath());
                 if(schemas.get(indexOfSchema).getType().equals("array")){
                     JsonArray targetJson = field.value.getAsJsonArray();
                     for(JsonElement arrayItem : targetJson){
                         entries = arrayItem.getAsJsonObject().entrySet();
                         putFieldIntoStack(stack, entries, indexOfSchema);
+                        checkRequiredFieldExist(indexOfSchema, arrayItem.getAsJsonObject().keySet());
                     }
                 } else if (schemas.get(indexOfSchema).getType().equals("object")){
                     entries = field.value.getAsJsonObject().entrySet();
                     putFieldIntoStack(stack, entries, indexOfSchema);
+                    checkRequiredFieldExist(indexOfSchema, field.value.getAsJsonObject().keySet());
                 } else {
                     log.error("record type should be 'array' or 'object'");
                     return false;
@@ -261,6 +289,7 @@ public class SchemaValidator {
                 // System.out.println(field.name);
                 fieldCounter += 1;
                 indexOfSchema = recordNamedTypes.indexOf(field.type.substring(0, field.type.length()-2));
+                log.info("Using Schema Record: " + schemas.get(indexOfSchema).getFullNamePath());
                 JsonArray targetJson = field.value.getAsJsonArray();
                 for(JsonElement arrayItem : targetJson) {
                     if(schemas.get(indexOfSchema).getType().equals("array")){
@@ -268,10 +297,12 @@ public class SchemaValidator {
                         for(JsonElement nestedArrayItem : nestedArray){
                             entries = nestedArrayItem.getAsJsonObject().entrySet();
                             putFieldIntoStack(stack, entries, indexOfSchema);
+                            checkRequiredFieldExist(indexOfSchema, nestedArrayItem.getAsJsonObject().keySet());
                         }
                     } else if (schemas.get(indexOfSchema).getType().equals("object")){
                         entries = arrayItem.getAsJsonObject().entrySet();
                         putFieldIntoStack(stack, entries, indexOfSchema);
+                        checkRequiredFieldExist(indexOfSchema, arrayItem.getAsJsonObject().keySet());
                     } else {
                         log.error("record type should be 'array' or 'object'");
                         return false;
@@ -292,8 +323,39 @@ public class SchemaValidator {
             }
 
         }
-        log.info("Field Counts: " + Integer.toString(fieldCounter));
+        log.info("Examined Field Counts: " + Integer.toString(fieldCounter));
         return isValid;
+    }
+
+    // polymorphic function for using JsonElement as arguement
+    public boolean run(JsonElement targetJsonElement, String mainSchemaRecordName) {
+        boolean isValid = true;
+        Deque<FieldInfo> stack = new ArrayDeque<>();
+        try {
+            int indexOfSchema = getIndexOfSchemaRecord(mainSchemaRecordName);
+            loadTargetJsonElement(targetJsonElement, indexOfSchema, stack);
+            isValid = iterateStack(stack);
+        } catch (Exception ex) {
+            log.error(ex.getMessage());
+            isValid = false;
+        }
+        return isValid;
+    }
+
+    // polymorphic function for using json file path as arguement
+    public boolean run(String targetJsonFilePath, String mainSchemaRecordName) {
+        boolean isValid = true;
+        Deque<FieldInfo> stack = new ArrayDeque<>();
+        try {
+            int indexOfSchema = getIndexOfSchemaRecord(mainSchemaRecordName);
+            loadTargetJsonFile(targetJsonFilePath, indexOfSchema, stack);
+            isValid = iterateStack(stack);
+        } catch (Exception ex) {
+            log.error(ex.getMessage());
+            isValid = false;
+        }
+        return isValid;
+
     }
 
 }

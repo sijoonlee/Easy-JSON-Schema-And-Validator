@@ -2,7 +2,8 @@
   "name": "john",
   "age":  30,
   "hobbies": [
-    { "name" : "soccer", "howFreq": 10 },
-    { "name" : "swimming", "howFreq": 1}
+    { "name" : "dance", "howFreq": 10 },
+    { "name" : "swimming", "howFreq": 11},
+    { }
   ]
 }

@@ -1,5 +1,6 @@
 package com.github.sijoonlee;
 
+import java.lang.reflect.Array;
 import java.util.*;
 
 /* Gson will populate data into this class from Schema json file
@@ -17,30 +18,7 @@ public class SchemaRecord {
         private String name;
         private String type;
         private String doc;
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getType() {
-            return type;
-        }
-
-        public void setType(String type) {
-            this.type = type;
-        }
-
-        public String getDoc() {
-            return doc;
-        }
-
-        public void setDoc(String doc) {
-            this.doc = doc;
-        }
+        private String required; // true or false, but will use as String to make it easier to pass argument
     }
 
     @Override
@@ -63,36 +41,18 @@ public class SchemaRecord {
     public ArrayList<SchemaField> getFields() {
         return fields;
     }
-
-    public Set<String> getFieldNames() {
-        Set<String> names = new HashSet<>();
-        for(SchemaField field: fields) {
-            names.add(field.name);
+    public ArrayList<String> getRequiredFieldNames() {
+        ArrayList<String> requiredFields = new ArrayList<>();
+        for(SchemaField field : fields) {
+            if(field.required != null && field.required.trim().toLowerCase().equals("true")) {
+                requiredFields.add(field.name);
+            }
         }
-        return names;
+        return requiredFields;
     }
 
     public String getType(){
         return type;
-    }
-
-    public String getFieldType(String name) {
-        String type = "";
-        for(SchemaField field: fields) {
-            if( name.equals(field.name) ) {
-                type = field.type;
-                break;
-            }
-        }
-        return type;
-    }
-
-    public Map<String, String> getFieldProperties() {
-        Map<String, String> entries = new HashMap<>();
-        for(SchemaField field: fields){
-            entries.put(field.name, field.type);
-        }
-        return entries;
     }
 
     public String findFieldTypeFromFieldName(String name) {
