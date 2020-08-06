@@ -19,6 +19,7 @@ public class SchemaRecord {
         private String type;
         private String doc;
         private String required; // true or false, but will use as String to make it easier to pass argument
+        private String rule;
     }
 
     @Override
@@ -55,23 +56,26 @@ public class SchemaRecord {
         return type;
     }
 
-    public String findFieldTypeFromFieldName(String name) {
+    public String[] findFieldTypeRuleFromFieldName(String name) {
         final String REGEX_PREFIX = "$REGEX$";
         String type = null;
         String pattern = "";
+        String rule = null;
         for(SchemaField field: fields){
             if(field.name.equals(name)){
                 type = field.type;
+                rule = field.rule;
                 break;
             } else if(field.name.startsWith(REGEX_PREFIX)){
                 pattern = field.name.substring(REGEX_PREFIX.length());
                 if(name.matches(pattern)){
                     type = field.type;
+                    rule = field.rule;
                     break;
                 }
             }
         }
-        return type;
+        return new String[] {type, rule};
     }
 
 }

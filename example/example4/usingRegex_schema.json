@@ -5,7 +5,8 @@
     "name": "test4",
     "doc": "validation schema",
     "fields" : [
-      { "name": "$REGEX$\\/applicant-details\\/applicant-([0-9])+\\/address-history", "type":  "String", "required": "true" }
+      { "name": "$REGEX$\\/applicant-details\\/applicant-([0-9])+\\/address-history", "type":  "String", "required": "true" },
+      { "name": "Regex for value", "type":  "String", "rule": "$REGEX$([a-z])+" }
     ]
   }
 ]

@@ -23,6 +23,7 @@ public class SchemaValidator {
     private final ArrayList<String> javaArrayTypes;
     private static final Logger log = LoggerFactory.getLogger(SchemaValidator.class.getName());
     private final String FIELD_NAME_NOT_EXIST = "FIELD_NAME_NOT_EXIST";
+    private final String RULE_NOT_EXIST = "RULE_NOT_EXIST";
     private final String TYPE_STRING = "String";
     private final String TYPE_INTEGER = "Integer";
     private final String TYPE_DOUBLE = "Double";
@@ -74,7 +75,7 @@ public class SchemaValidator {
     }
 
 
-    private void checkType(String type, String value) throws Exception {
+    private void checkTypeAndRule(String type, String value, String rule) throws Exception {
         if (type.equals(TYPE_INTEGER)) {
             try {
                 Integer.parseInt(value);
@@ -109,6 +110,16 @@ public class SchemaValidator {
             }
         }
 
+        if (!rule.equals(RULE_NOT_EXIST)) {
+            if(rule.startsWith(REGEX_PREFIX)) {
+                String pattern = rule.substring(REGEX_PREFIX.length());
+                if(!value.matches(pattern)){
+                    throw new Exception("Regex Rule Error - Value: " + value + " | Regex: " + pattern);
+                }
+            } else {
+                log.info("Sorry, currently only Regex rule is supported");
+            }
+        }
     }
 
     private ArrayList<String> getSchemaRecordNames(ArrayList<SchemaRecord> schemas) {
@@ -122,27 +133,32 @@ public class SchemaValidator {
         public String type ;
         public String name;
         public JsonElement value;
+        public String rule;
 
-        public FieldInfo(String type, String name, JsonElement value) {
-            this.type = type;
+
+        public FieldInfo(String type, String name, JsonElement value, String rule) {
+            this.type = type == null ? FIELD_NAME_NOT_EXIST : type;
             this.name = name;
             this.value = value;
+            this.rule = rule == null || rule.trim().isEmpty() ? RULE_NOT_EXIST : rule;
         }
     }
 
-    private String getFieldType(int indexOfSchema, String name) throws Exception {
-        String type = schemas.get(indexOfSchema).findFieldTypeFromFieldName(name);
+    private String[] getFieldTypeRule(int indexOfSchema, String name) throws Exception {
+        String[] typeAndRule = schemas.get(indexOfSchema).findFieldTypeRuleFromFieldName(name);
+        String type = typeAndRule[0];
         if(type == null) {
             throw new Exception("Field Name Error: can't find the field name in schema - " + name);
         }
-        return type;
+        return typeAndRule;
     }
 
     private void putFieldIntoStack(Deque<FieldInfo> stack, Set<Entry<String, JsonElement>> entries, int indexOfSchema) throws Exception {
         for (Entry<String, JsonElement> entry : entries){
-            String type = FIELD_NAME_NOT_EXIST;
-            type = getFieldType(indexOfSchema, entry.getKey());
-            stack.push(new FieldInfo(type, entry.getKey(), entry.getValue()));
+            String[] typeAndRule = getFieldTypeRule(indexOfSchema, entry.getKey());
+            String type = typeAndRule[0];
+            String rule = typeAndRule[1];
+            stack.push(new FieldInfo(type, entry.getKey(), entry.getValue(), rule));
         }
     }
 
@@ -216,15 +232,15 @@ public class SchemaValidator {
         for (String requiredFieldName : requiredFieldNames) {
             boolean found = false;
             for (String fieldNameInTarget : fieldNamesInTarget) {
-                if(requiredFieldName.startsWith(REGEX_PREFIX)){
+                if (requiredFieldName.equals(fieldNameInTarget)) {
+                    found = true;
+                    break;
+                } else if(requiredFieldName.startsWith(REGEX_PREFIX)){
                     String pattern = requiredFieldName.substring(REGEX_PREFIX.length());
                     if(fieldNameInTarget.matches(pattern)){
                         found = true;
                         break;
                     }
-                } else if (requiredFieldName.equals(fieldNameInTarget)) {
-                    found = true;
-                    break;
                 }
             }
             if(!found){
@@ -260,7 +276,7 @@ public class SchemaValidator {
                 // System.out.println(field.name);
                 fieldCounter += 1;
                 try {
-                    checkType(field.type, field.value.getAsString());
+                    checkTypeAndRule(field.type, field.value.getAsString(), field.rule);
                 } catch (Exception ex){
                     isValid = false;
                     log.error(ex.getMessage() + " - " + field.name);
@@ -273,7 +289,7 @@ public class SchemaValidator {
                     try{
                         // field.type looks like "String[]"
                         // field.type.substring(0, field.type.length()-2) is to delete "[]"
-                        checkType(field.type.substring(0, field.type.length()-2), arrayItem.getAsString());
+                        checkTypeAndRule(field.type.substring(0, field.type.length()-2), arrayItem.getAsString(), field.rule);
                     } catch (Exception ex){
                         isValid = false;
                         log.error(ex.getMessage() + " - " + field.name);
