@@ -1,5 +1,6 @@
 {
   "/applicant-details/applicant-1/address-history" : "init",
   "/applicant-details/applicant-2/address-history" : "deleted",
-  "Regex for value": "A"
+  "Regex for value": "A",
+  "SimpleEmail" : "aaa@aaa.aaa"
 }
