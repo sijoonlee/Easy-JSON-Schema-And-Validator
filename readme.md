@@ -161,6 +161,42 @@
     ```
   - if the field name is "/applicant-details/applicant-2/address-history", it is valid
 
+## You can use Regex pattern for value check
+- use property "rule" and prefix "$REGEX$"
+- use escape characters where they are needed
+- example
+```
+[
+  {
+    "type": "object",
+    "namespace": "simple",
+    "name": "test4",
+    "doc": "validation schema",
+    "fields" : [
+      { "name": "SimpleEmail", "type":  "String", "rule": "$REGEX$\\S+@\\S+\\.\\S+"}
+    ]
+  }
+]
+```
+
+## You can check if required fields exist
+- use property "required" and set as "true"
+    - don't forget double quotes around true 
+- example
+```
+[
+  {
+    "type": "object",
+    "namespace": "simple",
+    "name": "test4",
+    "doc": "validation schema",
+    "fields" : [
+      { "name": "$REGEX$\\/applicant-details\\/applicant-([0-9])+\\/address-history", "type":  "String", "required": "true" }
+    ]
+  }
+]
+```
+
 ## How to use Schema Classes
 1. Instantiate validator with schema json file
 - example
@@ -177,9 +213,3 @@
     boolean isValid = schemaValidator.runWithJsonFile("example/simpleStructure.json", "simple.test");
 
     ```
-
-## TODO
-- There is no Regex checking for 'value'
-- There is no required field checking
-    - Currently, error occurs only when it finds a field not listed in schema 
-    - Therefore, it doesn't make an error when some fields in schema are missing
