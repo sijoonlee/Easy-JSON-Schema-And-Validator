@@ -1,0 +1,14 @@
+[
+  {
+    "type": "object",
+    "namespace": "simple",
+    "name": "test5",
+    "doc": "validation schema",
+    "fields" : [
+      { "name": "field1", "type":  "String", "rule": "$EQUAL$abc"},
+      { "name": "field2", "type":  "String", "rule": "$NOT_EQUAL$null"}
+    ]
+  }
+]
+
+

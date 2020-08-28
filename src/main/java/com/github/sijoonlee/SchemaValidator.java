@@ -3,24 +3,46 @@ package com.github.sijoonlee;
 import com.github.sijoonlee.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
 import java.math.BigInteger;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Map.Entry;
 
+/*
+Goal
+    Validation happens iteratively through all sub-trees in Json structure
+    Both JsonElement Object(Gson) and Json File should be able to be validated
+
+Type Checking
+    There are 4 different categories in Types of values
+    - Java types (ex. String, Integer, and so on)
+    - Array types from Java types (ex. String[], Integer[], and so one)
+    - Custom types (ex. schema.omp.lead  - this type refers to another record, please see readme.md)
+    - Array types from custom types(ex. schema.omp.lead[])
+
+High level structure
+    run()
+        -> load data into stack
+            -> while loop till the stack has no item
+                -> pop an item
+                    -> if Java type, do type checking
+                    -> if Array of Java type, spread the array, and do the type checking for each one
+                    -> if Custom type(so called "record named type"), unfold it and add its items to stack
+                    -> if Array of Custom type, spread it, unfold it, and add its items to stack
+                    cf) since the custom type consist of Java types, eventually stack will be emptied
+ */
+
 public class SchemaValidator {
     private final ArrayList<SchemaRecord> schemas;
-    private final ArrayList<String> recordNamedTypes;
-    private final ArrayList<String> recordNamedArrayTypes;
-    private final ArrayList<String> javaTypes;
-    private final ArrayList<String> javaArrayTypes;
+    private ArrayList<String> recordNamedTypes;
+    private ArrayList<String> recordNamedArrayTypes;
+    private ArrayList<String> javaTypes;
+    private ArrayList<String> javaArrayTypes;
     private static final Logger log = LoggerFactory.getLogger(SchemaValidator.class.getName());
     private final String FIELD_NAME_NOT_EXIST = "FIELD_NAME_NOT_EXIST";
     private final String RULE_NOT_EXIST = "RULE_NOT_EXIST";
@@ -31,13 +53,17 @@ public class SchemaValidator {
     private final String TYPE_BOOLEAN = "Boolean";
     private final String TYPE_OFFSETDATETIME = "OffsetDateTime";
     private final String TYPE_CHECKING_PASS = "TypeCheckingPass";
-    private final String REGEX_PREFIX = "$REGEX$";
+    private final String PREFIX_REGEX = "$REGEX$";
+    private final String PREFIX_EQUAL = "$EQUAL$";
+    private final String PREFIX_NOT_EQUAL = "$NOT_EQUAL$";
 
-    /*
-    @FirstParam: the path of Schema json file
-     */
+    public SchemaValidator(ArrayList<SchemaRecord> schemas) {
+        // import schemas
+        this.schemas = schemas;
+        initializeTypes();
+    }
+
     public SchemaValidator(String schemaPath) {
-
         // import schemas
         schemas = new ArrayList<>();
         JsonArray jsonArray = JsonUtil.convertJsonFileToJsonArray(schemaPath); // this is because Schema's root element is always Json array
@@ -46,7 +72,10 @@ public class SchemaValidator {
             // convert each item in array into SchemaRecord instance and push it to ArrayList
             schemas.add(gson.fromJson(elm, SchemaRecord.class));
         }
+        initializeTypes();
+    }
 
+    public void initializeTypes(){
         // Collect schema record's full names (ex: schema.omp.lead )
         // these full names can be referred as customized types
         recordNamedTypes = getSchemaRecordNames(schemas);
@@ -71,10 +100,14 @@ public class SchemaValidator {
         for(String type: recordNamedTypes){
             recordNamedArrayTypes.add(type + "[]");
         }
-
     }
 
+    public void printSchemas(){
+        System.out.println(this.schemas);
+    }
 
+    // Accept values as String first, and check if they can be parsed as Java types
+    // Rule should be prefixed "$REGEX$" since currently only regex pattern is used for rule checking
     private void checkTypeAndRule(String type, String value, String rule) throws Exception {
         if (type.equals(TYPE_INTEGER)) {
             try {
@@ -111,13 +144,24 @@ public class SchemaValidator {
         }
 
         if (!rule.equals(RULE_NOT_EXIST)) {
-            if(rule.startsWith(REGEX_PREFIX)) {
-                String pattern = rule.substring(REGEX_PREFIX.length());
+            if(rule.startsWith(PREFIX_REGEX)) {
+                String pattern = rule.substring(PREFIX_REGEX.length());
+                // System.out.println(pattern);
                 if(!value.matches(pattern)){
                     throw new Exception("Regex Rule Error - Value: " + value + " | Regex: " + pattern);
                 }
+            } else if(rule.startsWith(PREFIX_EQUAL)) {
+                String equalValue = rule.substring(PREFIX_REGEX.length());
+                if(!value.equals(equalValue)){
+                    throw new Exception("Equal Rule Error - Value: " + value + " | Should be: " + equalValue);
+                }
+            } else if(rule.startsWith(PREFIX_NOT_EQUAL)) {
+                String notEqualValue = rule.substring(PREFIX_NOT_EQUAL.length());
+                if (value.equals(notEqualValue)) {
+                    throw new Exception("NotEqual Rule Error - Value: " + value + " | Should not be: " + notEqualValue);
+                }
             } else {
-                log.info("Sorry, currently only Regex rule is supported");
+                log.info("Sorry, currently only Regex/Equal/NotEqual rule is supported");
             }
         }
     }
@@ -129,14 +173,17 @@ public class SchemaValidator {
         }
         return names;
     }
+
+    // Inner class, this is the type of items in Stack
     private class FieldInfo {
         public String type ;
         public String name;
         public JsonElement value;
         public String rule;
 
-
         public FieldInfo(String type, String name, JsonElement value, String rule) {
+            // in case json has an unknown field name, which is not specified in schema, type becomes null
+            // please see findFieldTypeRuleFromFieldName() method in SchemaRecord class
             this.type = type == null ? FIELD_NAME_NOT_EXIST : type;
             this.name = name;
             this.value = value;
@@ -183,7 +230,6 @@ public class SchemaValidator {
     }
 
     public void loadTargetJsonFile(String jsonFilePath, int indexOfSchema, Deque<FieldInfo> stack) throws Exception {
-        boolean isValid = true;
         // Generating Initial Stack
         // - check if it is json object or json array
         // - if is array, unfold array and put all items into stack
@@ -235,8 +281,8 @@ public class SchemaValidator {
                 if (requiredFieldName.equals(fieldNameInTarget)) {
                     found = true;
                     break;
-                } else if(requiredFieldName.startsWith(REGEX_PREFIX)){
-                    String pattern = requiredFieldName.substring(REGEX_PREFIX.length());
+                } else if(requiredFieldName.startsWith(PREFIX_REGEX)){
+                    String pattern = requiredFieldName.substring(PREFIX_REGEX.length());
                     if(fieldNameInTarget.matches(pattern)){
                         found = true;
                         break;
@@ -257,10 +303,7 @@ public class SchemaValidator {
         }
         return index;
     }
-    /*
-        @FirstParam: it is Gson's JsonElement object to be validated
-        @SecondParam: it is the full name of the schema record, which is specified inside of Schema json file
-     */
+
     public boolean iterateStack(Deque<FieldInfo> stack) throws Exception {
         // prepare
         boolean isValid = true;
@@ -273,7 +316,6 @@ public class SchemaValidator {
         while (stack.size() > 0) {
             field = stack.pop();
             if (javaTypes.contains(field.type)) {
-                // System.out.println(field.name);
                 fieldCounter += 1;
                 try {
                     checkTypeAndRule(field.type, field.value.getAsString(), field.rule);
@@ -283,7 +325,6 @@ public class SchemaValidator {
                 };
 
             } else if (javaArrayTypes.contains(field.type)) {
-                // System.out.println(field.name);
                 fieldCounter += 1;
                 for(JsonElement arrayItem :field.value.getAsJsonArray()){
                     try{
@@ -297,7 +338,6 @@ public class SchemaValidator {
                 }
 
             } else if (recordNamedTypes.contains(field.type)) {
-                // System.out.println(field.name);
                 fieldCounter += 1;
                 indexOfSchema = recordNamedTypes.indexOf(field.type);
                 log.info("Using Schema Record: " + schemas.get(indexOfSchema).getFullNamePath());
@@ -358,13 +398,13 @@ public class SchemaValidator {
         return isValid;
     }
 
-    // polymorphic function for using JsonElement as arguement
+    // polymorphic function for using JsonElement as argument
     public boolean run(JsonElement targetJsonElement, String mainSchemaRecordName) {
         boolean isValid = true;
         Deque<FieldInfo> stack = new ArrayDeque<>();
         try {
             int indexOfSchema = getIndexOfSchemaRecord(mainSchemaRecordName);
-            loadTargetJsonElement(targetJsonElement, indexOfSchema, stack);
+            loadTargetJsonElement(targetJsonElement, indexOfSchema, stack); // stack is passed by ref
             isValid = iterateStack(stack);
         } catch (Exception ex) {
             log.error(ex.getMessage());
@@ -373,13 +413,13 @@ public class SchemaValidator {
         return isValid;
     }
 
-    // polymorphic function for using json file path as arguement
+    // polymorphic function for using json file path as argument
     public boolean run(String targetJsonFilePath, String mainSchemaRecordName) {
         boolean isValid = true;
         Deque<FieldInfo> stack = new ArrayDeque<>();
         try {
             int indexOfSchema = getIndexOfSchemaRecord(mainSchemaRecordName);
-            loadTargetJsonFile(targetJsonFilePath, indexOfSchema, stack);
+            loadTargetJsonFile(targetJsonFilePath, indexOfSchema, stack); // stack is passed by ref
             isValid = iterateStack(stack);
         } catch (Exception ex) {
             log.error(ex.getMessage());
@@ -388,5 +428,4 @@ public class SchemaValidator {
         return isValid;
 
     }
-
 }

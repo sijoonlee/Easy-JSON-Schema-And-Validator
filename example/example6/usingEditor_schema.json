@@ -1,0 +1,14 @@
+[
+  {
+    "type": "object",
+    "namespace": "simple",
+    "name": "test6",
+    "doc": "validation schema",
+    "fields" : [
+      { "name": "field1", "type":  "String"},
+      { "name": "field2", "type":  "String"}
+    ]
+  }
+]
+
+

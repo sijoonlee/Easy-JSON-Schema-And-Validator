@@ -1,11 +1,4 @@
-## Simple JSON Schema and its Validator
-- How I structured JSON schema is affected by [Apache Avro Schema](https://avro.apache.org/)
-    - Not exactly same, though
-- There is an existing draft of [JSON schema](https://tools.ietf.org/html/draft-zyp-json-schema-04)
-    - But, in my opinion, this is far from easy-to-use
-
-## if you want to see examples first 
-- Please see **example** folder and **test** folder
+## How to wrtie/use Schema
 
 ## Terminology
 - There are two basic structures of Json  
@@ -165,37 +158,59 @@
 - use property "rule" and prefix "$REGEX$"
 - use escape characters where they are needed
 - example
-```
-[
-  {
-    "type": "object",
-    "namespace": "simple",
-    "name": "test4",
-    "doc": "validation schema",
-    "fields" : [
-      { "name": "SimpleEmail", "type":  "String", "rule": "$REGEX$\\S+@\\S+\\.\\S+"}
+    ```
+    [
+      {
+        "type": "object",
+        "namespace": "simple",
+        "name": "test4",
+        "doc": "validation schema",
+        "fields" : [
+          { "name": "SimpleEmail", "type":  "String", "rule": "$REGEX$\\S+@\\S+\\.\\S+"}
+        ]
+      }
     ]
-  }
-]
+    ```
+  
+ ## You can use 'equal' / 'not equal' rules for value check
+- use prefix $EQUAL$ or $NOT_EQUAL$
+    - following letters will the value to be the condition
+- Following example will 
+    - examine if the "type" field has "Lead" value
+    - examine if the "key" field doesn't have "null" value  
 ```
+ [
+   {
+     "type": "object",
+     "namespace": "schema.salesforce",
+     "name": "leadFromLead",
+     "doc": "schema for lead for salesforce",
+     "fields": [
+       { "name":  "type", "type":  "String", "rule": "$EQUAL$Lead" }
+       { "name":  "key", "type":  "String", "rule": "$NOT_EQUAL$null" }
+      ]
+   }
+ ]
+```
+
 
 ## You can check if required fields exist
 - use property "required" and set as "true"
     - don't forget double quotes around true 
 - example
-```
-[
-  {
-    "type": "object",
-    "namespace": "simple",
-    "name": "test4",
-    "doc": "validation schema",
-    "fields" : [
-      { "name": "$REGEX$\\/applicant-details\\/applicant-([0-9])+\\/address-history", "type":  "String", "required": "true" }
+    ```
+    [
+      {
+        "type": "object",
+        "namespace": "simple",
+        "name": "test4",
+        "doc": "validation schema",
+        "fields" : [
+          { "name": "address-history", "type":  "String", "required": "true" }
+        ]
+      }
     ]
-  }
-]
-```
+    ```
 
 ## How to use Schema Classes
 1. Instantiate validator with schema json file
@@ -208,8 +223,9 @@
     JsonElement json = [some process]
     boolean isValid = schemaValidator.runWithJsonElement(json, "simple.test"); // the second argument 'simple.test' is the full name of the schema record of root element
     ```
-3. or Run validator with Json file
+3. Run validator with Json file
     ```
     boolean isValid = schemaValidator.runWithJsonFile("example/simpleStructure.json", "simple.test");
 
     ```
+4. Run editor to manipulate schema first and pass the edited schema to Validator

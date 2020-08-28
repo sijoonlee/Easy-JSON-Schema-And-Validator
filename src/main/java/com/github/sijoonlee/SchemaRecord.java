@@ -1,6 +1,5 @@
 package com.github.sijoonlee;
 
-import java.lang.reflect.Array;
 import java.util.*;
 
 /* Gson will populate data into this class from Schema json file
@@ -42,6 +41,7 @@ public class SchemaRecord {
     public ArrayList<SchemaField> getFields() {
         return fields;
     }
+
     public ArrayList<String> getRequiredFieldNames() {
         ArrayList<String> requiredFields = new ArrayList<>();
         for(SchemaField field : fields) {
@@ -50,6 +50,30 @@ public class SchemaRecord {
             }
         }
         return requiredFields;
+    }
+
+    public boolean setFieldRequiredAs(String fieldName, boolean value) {
+        boolean found = false;
+        for(SchemaField field : fields) {
+            if(field.name.equals(fieldName)){
+                field.required = String.valueOf(value);
+                found = true;
+                break;
+            }
+        }
+        return found;
+    }
+
+    public boolean setFieldRuleAs(String fieldName, String rule) {
+        boolean found = false;
+        for(SchemaField field : fields) {
+            if(field.name.equals(fieldName)){
+                field.rule = rule;
+                found = true;
+                break;
+            }
+        }
+        return found;
     }
 
     public String getType(){
