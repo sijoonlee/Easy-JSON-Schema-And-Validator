@@ -229,3 +229,19 @@
 
     ```
 4. Run editor to manipulate schema first and pass the edited schema to Validator
+    ```
+    // load schema file to Editor
+    SchemaEditor editor = new SchemaEditor("example/example6/usingEditor_schema.json");
+    
+    // edit
+    editor.setFieldRequired("simple.test6", "field1");
+    editor.setFieldRuleEqualTo("simple.test6", "field1", "abc");
+
+    // pass the edited schema to Validator
+    ArrayList<SchemaRecord> schemas = editor.getSchemas();
+    SchemaValidator validator = new SchemaValidator(schemas);
+    
+    // Run validator
+    boolean isValid = validator.run("example/example6/usingEditor.json", "simple.test6");
+    ```
+   
